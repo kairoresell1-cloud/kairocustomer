@@ -28,9 +28,12 @@ async function gestisciBottone(interaction) {
     }
 
     const ordineId = customId.replace('order_edit_', '');
+    console.log(`[order_edit] richiesto da ${interaction.user.username} per ordine ${ordineId}`);
+
     const ordine = db.getOrdinePerId(ordineId);
 
     if (!ordine) {
+      console.log(`[order_edit] ordine ${ordineId} non trovato nel database`);
       return interaction.reply({
         content: '⚠️ Ordine non trovato (potrebbe essere stato rimosso).',
         flags: MessageFlags.Ephemeral,

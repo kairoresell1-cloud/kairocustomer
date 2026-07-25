@@ -53,15 +53,18 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isButton()) {
-      return gestisciBottone(interaction);
+      await gestisciBottone(interaction);
+      return;
     }
 
     if (interaction.isStringSelectMenu()) {
-      return gestisciSelectMenu(interaction);
+      await gestisciSelectMenu(interaction);
+      return;
     }
 
     if (interaction.isModalSubmit()) {
-      return gestisciModal(interaction);
+      await gestisciModal(interaction);
+      return;
     }
   } catch (err) {
     console.error('Errore gestendo interazione:', err);
