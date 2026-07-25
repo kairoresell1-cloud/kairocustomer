@@ -26,7 +26,8 @@ function buildModificaModal(ordine) {
 
   const statoInput = new TextInputBuilder()
     .setCustomId('stato')
-    .setLabel('Stato (In lavorazione / Completato / Annullato)')
+    .setLabel('Stato')
+    .setPlaceholder('In lavorazione / Completato / Annullato')
     .setStyle(TextInputStyle.Short)
     .setValue(ordine.stato)
     .setRequired(true);
