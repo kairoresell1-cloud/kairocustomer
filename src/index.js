@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, MessageFlags, REST, Routes } = require('discord.js');
 const {
   gestisciBottone,
   gestisciSelectMenu,
@@ -17,13 +17,30 @@ client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter((f) => f.endsWith('.js'));
 
+const commandsJson = [];
 for (const file of commandFiles) {
   const command = require(path.join(commandsPath, file));
   client.commands.set(command.data.name, command);
+  commandsJson.push(command.data.toJSON());
 }
 
-client.once('clientReady', () => {
+// Registra i comandi slash su Discord automaticamente, ad ogni avvio del bot
+async function registraComandi() {
+  try {
+    const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      { body: commandsJson }
+    );
+    console.log(`✅ ${commandsJson.length} comandi slash registrati.`);
+  } catch (err) {
+    console.error('⚠️ Errore registrando i comandi slash:', err.message);
+  }
+}
+
+client.once('clientReady', async () => {
   console.log(`Bot online come ${client.user.tag}`);
+  await registraComandi();
 });
 
 client.on('interactionCreate', async (interaction) => {

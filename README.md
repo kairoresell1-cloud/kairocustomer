@@ -81,16 +81,15 @@ CANALE_RECENSIONI_ID=...
 - `CLIENT_ID`: lo trovi in Discord Developer Portal → General Information → Application ID
 - `GUILD_ID`: ID del tuo server (tasto destro sull'icona del server → Copia ID)
 
-### 4. Installa, registra i comandi, avvia
+### 4. Installa e avvia
 
 ```
 npm install
-npm run deploy-commands
 npm start
 ```
 
-`deploy-commands` va rilanciato solo quando aggiungi/modifichi comandi, non
-ad ogni avvio.
+I comandi slash vengono registrati **automaticamente** ogni volta che il
+bot si avvia — non devi lanciare nient'altro a mano.
 
 ### 5. Setup recensioni
 Una volta online il bot, vai nel canale recensioni e lancia una volta sola
