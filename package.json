@@ -1,15 +1,15 @@
 {
-  "name": "paypal-notify-bot",
+  "name": "shop-manager-bot",
   "version": "1.0.0",
-  "description": "Bot Discord che avvisa lo staff quando arriva un pagamento PayPal (Amici e Familiari), con importo e descrizione.",
+  "description": "Bot Discord per gestione ordini (ticket -> ordine -> database ricercabile) e sistema recensioni con webhook.",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "deploy-commands": "node src/deploy-commands.js"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
-    "dotenv": "^16.4.5",
-    "node-fetch": "^2.7.0"
+    "dotenv": "^16.4.5"
   }
 }

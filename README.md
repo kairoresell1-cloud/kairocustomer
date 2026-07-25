@@ -1,74 +1,109 @@
-# PayPal Notify Bot
+# Shop Manager Bot
 
-Bot Discord che controlla periodicamente il tuo PayPal e avvisa un canale
-(#pagamenti) quando arriva un nuovo pagamento, mostrando nome del mittente,
-importo e **descrizione/nota del pagamento**.
+Bot Discord per gestire ordini (dal ticket alla vendita) e recensioni,
+riusando lo stesso bot/token già configurato in precedenza (tolta la parte
+PayPal).
 
-## Come funziona
+## Comandi
 
-Ogni `CHECK_INTERVAL_MINUTI` minuti il bot chiede a PayPal le transazioni
-recenti, confronta gli ID con quelli già notificati (salvati in
-`data/notificate.json`) e posta un embed su Discord per ognuna di quelle nuove.
+### `/ordine-crea` (solo staff)
+Da lanciare dentro il canale ticket del cliente.
+Opzioni: `acquirente` (tag utente), `prodotti`, `totale`, `note` (opzionale).
+Crea un embed con i dettagli e un bottone **✏️ Modifica ordine**, e salva
+tutto nel database (`data/ordini.json`). Se hai configurato
+`CANALE_ORDINI_LOG_ID`, pubblica automaticamente una **copia identica**
+anche in quel canale — così hai un colpo d'occhio su tutti gli ordini senza
+dover cercare tra i ticket.
 
-Non serve nessun comando: è tutto automatico.
+### Bottone "Modifica ordine"
+Qualsiasi membro dello staff con accesso al canale può cliccarlo — funziona
+sia dal messaggio nel ticket sia dalla copia nel canale log. Si apre un
+modulo pre-compilato (prodotti, totale, stato, note), al salvataggio
+aggiorna il database **e tutte le copie del messaggio** (ticket + canale
+log), tracciando chi ha modificato e quando.
+
+### `/ordine-cerca` (solo staff)
+Cerca per `acquirente` (tag utente) e/o `testo` (nome, ID ordine, o parola
+nei prodotti). Restituisce fino a 5 ordini con dettagli completi e bottone
+di modifica diretto — funziona da qualsiasi canale in cui il comando sia
+disponibile.
+
+### `/recensione-dai` (solo staff)
+Sblocca **una singola possibilità** di lasciare una recensione per
+l'utente indicato. Opzionalmente puoi collegarla a un ID ordine specifico.
+
+### `/recensioni-setup` (solo staff, da lanciare una volta)
+Pubblica nel canale corrente il messaggio fisso con il bottone
+**⭐ Lascia una recensione**. Lancialo una sola volta nel canale recensioni.
+
+## Come funziona il flusso recensioni
+
+1. Staff completa un ordine → lancia `/recensione-dai @utente`
+2. L'utente va nel canale recensioni, clicca il bottone (visibile a tutti,
+   ma utilizzabile solo da chi ha lo sblocco attivo)
+3. Sceglie le stelle da un menu, poi scrive il commento in un modulo
+4. Il messaggio viene pubblicato **tramite webhook**, con nome e avatar
+   dell'utente — quindi appare come se l'avesse scritto lui direttamente,
+   anche se il canale ha i permessi di scrittura bloccati per tutti tranne
+   lo staff
+5. Lo sblocco si consuma: per una nuova recensione serve un nuovo
+   `/recensione-dai`
 
 ## Setup
 
-### 1. Crea l'app PayPal
-1. Vai su https://developer.paypal.com/dashboard/applications
-2. Login con il tuo account PayPal (Personal va bene)
-3. "Create App" → dagli un nome → copia **Client ID** e **Secret**
+### 1. Permessi del canale recensioni
+Imposta il canale in modo che **@everyone non possa scrivere messaggi**
+(Send Messages: ❌) ma possa **vedere il canale** (View Channel: ✅). Il bot
+scrive comunque tramite webhook, che non dipende dai permessi dell'utente.
+Assicurati che il bot abbia il permesso **Manage Webhooks** in quel canale.
 
-### 2. Crea il bot Discord (se non l'hai già)
-1. https://discord.com/developers/applications → New Application
-2. Bot → copia il **Token**
-3. Invita il bot nel server con permesso di leggere/scrivere nel canale #pagamenti
-4. Copia l'**ID del canale** #pagamenti (tasto destro sul canale → Copia ID,
-   serve la modalità sviluppatore attiva su Discord)
+### 1bis. Canale log ordini (opzionale ma consigliato)
+Crea un canale tipo `#ordini` visibile solo allo staff. Copiane l'ID e
+mettilo in `CANALE_ORDINI_LOG_ID`. Se lo lasci vuoto, il bot funziona lo
+stesso ma gli ordini restano visibili solo dentro i rispettivi ticket.
 
-### 3. Configura le variabili
-Copia `.env.example` in `.env` (in locale) oppure inseriscile direttamente
-come variabili d'ambiente su Railway:
+### 2. Ruolo Staff
+Crea (o usa uno esistente) un ruolo Staff su Discord, copiane l'ID (tasto
+destro sul ruolo in Impostazioni server → Ruoli, serve la modalità
+sviluppatore attiva).
+
+### 3. Variabili d'ambiente
+Copia `.env.example` in `.env` (o inseriscile su Railway):
 
 ```
 DISCORD_TOKEN=...
-CANALE_PAGAMENTI_ID=...
-PAYPAL_CLIENT_ID=...
-PAYPAL_SECRET=...
-PAYPAL_ENV=live
-CHECK_INTERVAL_MINUTI=3
+CLIENT_ID=...
+GUILD_ID=...
+STAFF_ROLE_ID=...
+CANALE_RECENSIONI_ID=...
 ```
 
-### 4. Installa ed avvia
+- `CLIENT_ID`: lo trovi in Discord Developer Portal → General Information → Application ID
+- `GUILD_ID`: ID del tuo server (tasto destro sull'icona del server → Copia ID)
+
+### 4. Installa, registra i comandi, avvia
+
 ```
 npm install
+npm run deploy-commands
 npm start
 ```
 
-## ⚠️ Nota importante su Railway: persistenza dati
+`deploy-commands` va rilanciato solo quando aggiungi/modifichi comandi, non
+ad ogni avvio.
 
-Il file `data/notificate.json` serve a non notificare due volte lo stesso
-pagamento. Su Railway, il filesystem di default **si resetta ad ogni nuovo
-deploy** — se questo succede, il bot perde la memoria di cosa ha già
-notificato e alla ripartenza potrebbe rinotificare le transazioni delle
-ultime 6 ore.
+### 5. Setup recensioni
+Una volta online il bot, vai nel canale recensioni e lancia una volta sola
+`/recensioni-setup`.
 
-Per evitarlo, su Railway aggiungi un **Volume** e montalo sulla cartella
-`data/` del progetto (Railway → tuo servizio → Settings → Volumes). Così i
-dati sopravvivono ai riavvii/deploy.
+## ⚠️ Persistenza dati su Railway
 
-## Personalizzazione
+Come per il bot precedente: il database (`data/ordini.json` e
+`data/recensioni-pendenti.json`) va perso ad ogni redeploy se non usi un
+**Volume**. Railway → tuo servizio → Settings → Volumes → crea un volume e
+montalo sul path della cartella `data/` del progetto.
 
-- **Intervallo di controllo**: cambia `CHECK_INTERVAL_MINUTI` (occhio: PayPal
-  ha dei rate limit sulle API, non scendere sotto 1 minuto)
-- **Colore embed**: in `src/discordNotify.js`, `setColor(0x9b59b6)` — al
-  momento impostato viola, in tema con lo shop
-- **Quante ore indietro guardare ad ogni check**: in `src/index.js`,
-  `getTransazioniRecenti(6)` — 6 ore è un buffer di sicurezza in caso il bot
-  fosse stato offline
-
-## Possibili estensioni future
-- Comando `/verifica` per cercare manualmente un pagamento specifico
-- Distinzione visiva tra pagamenti "Amici e Familiari" vs altri tipi
-- Notifica anche di rimborsi/chargeback (stesso principio, transazione con
-  importo negativo)
+## Estensioni future possibili
+- Comando `/ordine-elimina` per rimuovere ordini errati
+- Statistiche automatiche (`/stats`) su vendite totali/settimanali
+- Notifica automatica in un canale log ogni volta che un ordine cambia stato

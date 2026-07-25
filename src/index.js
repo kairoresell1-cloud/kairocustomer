@@ -1,46 +1,60 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits } = require('discord.js');
-const { getTransazioniRecenti } = require('./paypalTransactions');
-const { getIdGiaNotificati, salvaIdNotificati } = require('./store');
-const { inviaNotificaPagamento } = require('./discordNotify');
+const fs = require('fs');
+const path = require('path');
+const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');
+const {
+  gestisciBottone,
+  gestisciSelectMenu,
+  gestisciModal,
+} = require('./interactionHandlers');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-async function controllaPagamenti() {
+// Carichiamo tutti i comandi dalla cartella commands/
+client.commands = new Collection();
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter((f) => f.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const command = require(path.join(commandsPath, file));
+  client.commands.set(command.data.name, command);
+}
+
+client.once('clientReady', () => {
+  console.log(`Bot online come ${client.user.tag}`);
+});
+
+client.on('interactionCreate', async (interaction) => {
   try {
-    const transazioni = await getTransazioniRecenti(6); // ultime 6 ore
-    const giaNotificati = getIdGiaNotificati();
-
-    const nuove = transazioni.filter((t) => !giaNotificati.has(t.id));
-
-    if (nuove.length === 0) {
-      console.log(`[${new Date().toLocaleTimeString('it-IT')}] Nessun nuovo pagamento.`);
+    if (interaction.isChatInputCommand()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command) return;
+      await command.execute(interaction);
       return;
     }
 
-    for (const transazione of nuove) {
-      await inviaNotificaPagamento(client, transazione);
-      giaNotificati.add(transazione.id);
-      console.log(`Notificato pagamento ${transazione.id} da ${transazione.nome}`);
+    if (interaction.isButton()) {
+      return gestisciBottone(interaction);
     }
 
-    salvaIdNotificati(giaNotificati);
+    if (interaction.isStringSelectMenu()) {
+      return gestisciSelectMenu(interaction);
+    }
+
+    if (interaction.isModalSubmit()) {
+      return gestisciModal(interaction);
+    }
   } catch (err) {
-    console.error('Errore durante il controllo pagamenti:', err.message);
+    console.error('Errore gestendo interazione:', err);
+    const messaggioErrore = { content: '⚠️ Si è verificato un errore imprevisto.', flags: MessageFlags.Ephemeral };
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp(messaggioErrore).catch(() => {});
+    } else {
+      await interaction.reply(messaggioErrore).catch(() => {});
+    }
   }
-}
-
-client.once('ready', () => {
-  console.log(`Bot online come ${client.user.tag}`);
-
-  const intervalloMinuti = parseInt(process.env.CHECK_INTERVAL_MINUTI || '3', 10);
-  console.log(`Controllo pagamenti ogni ${intervalloMinuti} minuti.`);
-
-  // Primo controllo subito all'avvio, poi a intervalli regolari
-  controllaPagamenti();
-  setInterval(controllaPagamenti, intervalloMinuti * 60 * 1000);
 });
 
 client.login(process.env.DISCORD_TOKEN);
